@@ -10,6 +10,7 @@ import (
 	"math/big"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/ProtonMail/gopenpgp/v2/armor"
 	"github.com/ProtonMail/gopenpgp/v2/constants"
@@ -227,6 +228,69 @@ func (key *Key) ArmorWithCustomHeaders(comment, version string) (string, error) 
 	}
 
 	return armor.ArmorWithTypeAndCustomHeaders(serialized, constants.PrivateKeyHeader, version, comment)
+}
+
+func (key *Key) GetArmoredRevocationCertificate(reason int64, reasonText string, revokeTime int64) (s string, err error) {
+	certificate, err := key.GetRevocationCertificate(reason, reasonText, revokeTime)
+
+	if err != nil {
+		return "", fmt.Errorf("failed to make key revocation: %v", err)
+	}
+
+	return armor.ArmorWithType(certificate, constants.PublicKeyHeader)
+}
+
+func (key *Key) GetArmoredRevocationCertificateWithCustomHeaders(comment, version string, reason int64, reasonText string, revokeTime int64) (s string, err error) {
+	certificate, err := key.GetRevocationCertificate(reason, reasonText, revokeTime)
+
+	if err != nil {
+		return "", fmt.Errorf("failed to make key revocation: %v", err)
+	}
+
+	return armor.ArmorWithTypeAndCustomHeaders(certificate, constants.PublicKeyHeader, version, comment)
+}
+
+func (key *Key) GetRevocationCertificate(reason int64, reasonText string, revokeTime int64) (b []byte, err error) {
+	var rson = uint8(reason)
+	var now = time.Unix(revokeTime, int64(0))
+
+	p, err := key.GetRevocationSignaturePacket(rson, reasonText, now)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to make key revocation: %v", err)
+	}
+
+	var outBuf bytes.Buffer
+	if err = p.Serialize(&outBuf); err != nil {
+		return nil, errors.Wrap(err, "gopenpgp: error in serializing revocation certificate")
+	}
+
+	return outBuf.Bytes(), nil
+}
+
+func (key *Key) GetRevocationSignaturePacket(reason uint8, reasonText string, now time.Time) (*packet.Signature, error) {
+	config := packet.Config{
+		DefaultHash: crypto.SHA256,
+	}
+
+	var r = packet.ReasonForRevocation(reason)
+
+	sig := &packet.Signature{
+		CreationTime:         now,
+		SigType:              packet.SigTypeKeyRevocation,
+		PubKeyAlgo:           key.entity.PrimaryKey.PubKeyAlgo,
+		Hash:                 config.Hash(),
+		IssuerKeyId:          &key.entity.PrimaryKey.KeyId,
+		RevocationReason:     &r,
+		RevocationReasonText: reasonText,
+	}
+
+	err := sig.RevokeKey(key.entity.PrimaryKey, key.entity.PrivateKey, &config)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create signature: %v", err)
+	}
+	return sig, nil
 }
 
 // GetArmoredPublicKey returns the armored public keys from this keyring.

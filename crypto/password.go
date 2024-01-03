@@ -174,6 +174,6 @@ func passwordDecrypt(encryptedIO io.Reader, password []byte) (*PlainMessage, err
 		Data:     messageBuf.Bytes(),
 		TextType: !md.LiteralData.IsBinary,
 		Filename: md.LiteralData.FileName,
-		Time:     md.LiteralData.Time,
+		Time:     int64(md.LiteralData.Time),
 	}, nil
 }

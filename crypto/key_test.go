@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ProtonMail/go-crypto/openpgp"
 	"github.com/ProtonMail/go-crypto/openpgp/armor"
@@ -37,6 +38,27 @@ func initGenerateKeys() {
 	keyTestEC, err = GenerateKey(keyTestName, keyTestDomain, "x25519", 256)
 	if err != nil {
 		panic("Cannot generate EC key:" + err.Error())
+	}
+
+	now := time.Date(2022, 6, 15, 0, 0, 0, 0, time.UTC)
+	revokeTime := now.Unix()
+
+	reasonByte := int64(0) // "no reason", see https://tools.ietf.org/html/rfc4880#section-5.2.3.23
+	reasonText := "This is a revocation certificate."
+	revokeCertificate, err := keyTestEC.GetArmoredRevocationCertificate(reasonByte, reasonText, revokeTime)
+
+	if err != nil {
+		panic("Cannot generate revocation certificate:" + err.Error())
+	} else {
+		println(revokeCertificate)
+	}
+
+	revokeCertificate2, err := keyTestEC.GetArmoredRevocationCertificateWithCustomHeaders("This is a revocation certificate", "", reasonByte, reasonText, revokeTime)
+
+	if err != nil {
+		panic("Cannot generate revocation certificate:" + err.Error())
+	} else {
+		println(revokeCertificate2)
 	}
 }
 

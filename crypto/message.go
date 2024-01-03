@@ -1,11 +1,14 @@
 package crypto
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/base64"
 	goerrors "errors"
 	"io"
 	"io/ioutil"
+	"log"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -27,7 +30,7 @@ type PlainMessage struct {
 	// If the content is text or binary
 	TextType bool
 	// The file's latest modification time
-	Time uint32
+	Time int64
 	// The encrypted message's filename
 	Filename string
 }
@@ -68,7 +71,7 @@ func NewPlainMessage(data []byte) *PlainMessage {
 		Data:     clone(data),
 		TextType: false,
 		Filename: "",
-		Time:     uint32(GetUnixTime()),
+		Time:     GetUnixTime(),
 	}
 }
 
@@ -76,7 +79,7 @@ func NewPlainMessage(data []byte) *PlainMessage {
 // signature, or verification from the unencrypted binary data.
 // This will encrypt the message with the binary flag and preserve the file as is.
 // It assigns a filename and a modification time.
-func NewPlainMessageFromFile(data []byte, filename string, time uint32) *PlainMessage {
+func NewPlainMessageFromFile(data []byte, filename string, time int64) *PlainMessage {
 	return &PlainMessage{
 		Data:     clone(data),
 		TextType: false,
@@ -95,7 +98,7 @@ func NewPlainMessageFromString(text string) *PlainMessage {
 		Data:     []byte(internal.Canonicalize(text)),
 		TextType: true,
 		Filename: "",
-		Time:     uint32(GetUnixTime()),
+		Time:     GetUnixTime(),
 	}
 }
 
@@ -191,6 +194,63 @@ func NewClearTextMessageFromArmored(signedMessage string) (*ClearTextMessage, er
 	}
 
 	return NewClearTextMessage(modulusBlock.Bytes, signature), nil
+}
+
+// GetKeyPacketFromFile returns the key packet of a split message from file
+// It is used to decrease memory usage for decrypting large files
+func GetKeyPacketFromFile(file string) ([]byte, error) {
+	f, err := os.Open(file)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	fi, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+
+	fileSize := fi.Size()
+
+	bufSize := min(4096, int(fileSize))
+
+	log.Printf("[KeyPacket] file size: %d, buffer size: %d", fileSize, bufSize)
+
+	bufReader := bufio.NewReaderSize(f, bufSize)
+	packets := packet.NewReader(bufReader)
+
+	splitPoint := int64(0)
+Loop:
+	for {
+		p, err := packets.Next()
+		if goerrors.Is(err, io.EOF) {
+			break
+		}
+		log.Printf("Reader packet: %v", p)
+		log.Printf("Reader size: %d, buffered: %d", bufReader.Size(), bufReader.Buffered())
+		if err != nil {
+			return nil, err
+		}
+		switch p.(type) {
+		case *packet.SymmetricKeyEncrypted, *packet.EncryptedKey:
+			splitPoint = int64(bufReader.Size() - bufReader.Buffered())
+		case *packet.SymmetricallyEncrypted, *packet.AEADEncrypted:
+			break Loop
+		}
+	}
+
+	_, err = f.Seek(0, 0)
+
+	log.Printf("packet splitPoint: %d", splitPoint)
+
+	buffer := make([]byte, splitPoint)
+	_, err = io.ReadFull(f, buffer)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return buffer, nil
 }
 
 // ---- MODEL METHODS -----

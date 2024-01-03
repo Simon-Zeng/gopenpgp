@@ -383,7 +383,7 @@ func TestKeyRing_DecryptStreamCompatible(t *testing.T) {
 		&PlainMessage{
 			Data:     messageBytes,
 			TextType: !testMeta.IsBinary,
-			Time:     uint32(testMeta.ModTime),
+			Time:     testMeta.ModTime,
 			Filename: testMeta.Filename,
 		},
 		keyRingTestPrivate,
@@ -635,7 +635,7 @@ func TestKeyRing_DecryptSplitStreamCompatible(t *testing.T) {
 		&PlainMessage{
 			Data:     messageBytes,
 			TextType: !testMeta.IsBinary,
-			Time:     uint32(testMeta.ModTime),
+			Time:     testMeta.ModTime,
 			Filename: testMeta.Filename,
 		},
 		keyRingTestPrivate,

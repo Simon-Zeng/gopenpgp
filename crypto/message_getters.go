@@ -9,6 +9,6 @@ func (msg *PlainMessage) GetFilename() string {
 }
 
 // GetTime returns the modification time of a file (if provided in the ciphertext).
-func (msg *PlainMessage) GetTime() uint32 {
+func (msg *PlainMessage) GetTime() int64 {
 	return msg.Time
 }

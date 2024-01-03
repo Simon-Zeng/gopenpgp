@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"io/ioutil"
+	"log"
 	"testing"
 	"time"
 
@@ -499,4 +500,18 @@ vA==
 	if split.DataPacket == nil {
 		t.Error("Data packet was nil")
 	}
+}
+
+func TestPGPGetKeyPacketFromFile(t *testing.T) {
+	keyPacket, err := GetKeyPacketFromFile("testdata/json.pgp")
+	if err != nil {
+		t.Errorf("Couldn't get keyPacket for split message: %v", err)
+	}
+
+	if keyPacket == nil {
+		t.Error("Key packet was nil")
+	}
+
+	log.Printf("Number of bytes read: %d\n", len(keyPacket))
+	log.Printf("Data read: %s\n", keyPacket)
 }

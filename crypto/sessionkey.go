@@ -258,7 +258,7 @@ func encryptStreamWithSessionKey(
 	return encryptStreamWithSessionKeyAndConfig(
 		plainMessageMetadata.IsBinary,
 		plainMessageMetadata.Filename,
-		uint32(plainMessageMetadata.ModTime),
+		plainMessageMetadata.ModTime,
 		dataPacketWriter,
 		sk,
 		signEntity,
@@ -269,7 +269,7 @@ func encryptStreamWithSessionKey(
 func encryptStreamWithSessionKeyAndConfig(
 	isBinary bool,
 	filename string,
-	modTime uint32,
+	modTime int64,
 	dataPacketWriter io.Writer,
 	sk *SessionKey,
 	signEntity *openpgp.Entity,
@@ -311,7 +311,7 @@ func encryptStreamWithSessionKeyAndConfig(
 			encryptWriter,
 			isBinary,
 			filename,
-			modTime,
+			uint32(modTime),
 		)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "gopenpgp: unable to serialize")
@@ -386,7 +386,7 @@ func decryptWithSessionKeyAndContext(
 		Data:     messageBuf.Bytes(),
 		TextType: !md.LiteralData.IsBinary,
 		Filename: md.LiteralData.FileName,
-		Time:     md.LiteralData.Time,
+		Time:     int64(md.LiteralData.Time),
 	}, err
 }
 
